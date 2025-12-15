@@ -87,7 +87,7 @@ export default function Home() {
           </p>
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 glass rounded-full text-sm">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span className="text-gray-300">Google Gemini API (text-embedding-004 + gemini-pro)</span>
+            <span className="text-gray-300">Google Gemini API (text-embedding-004 + gemini-2.5-flash)</span>
           </div>
         </header>
 
@@ -238,7 +238,7 @@ export default function Home() {
 
         {/* フッター */}
         <footer className="mt-12 text-center text-gray-500 text-sm">
-          <p>Powered by Google Gemini API (text-embedding-004 + gemini-pro)</p>
+          <p>Powered by Google Gemini API (text-embedding-004 + gemini-2.5-flash)</p>
           <p className="mt-2">RAG構成による高精度な職業分類判定システム</p>
         </footer>
       </div>
