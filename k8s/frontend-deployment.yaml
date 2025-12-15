@@ -19,6 +19,12 @@ spec:
         app: occupation-classifier
         component: frontend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: frontend
         image: ghcr.io/shznkym/occupation-classifier/frontend:latest
@@ -30,6 +36,13 @@ spec:
         env:
         - name: NEXT_PUBLIC_BACKEND_URL
           value: "http://backend-service:8000"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
         resources:
           requests:
             cpu: 100m

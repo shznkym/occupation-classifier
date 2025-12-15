@@ -19,6 +19,12 @@ spec:
         app: occupation-classifier
         component: backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: backend
         image: ghcr.io/shznkym/occupation-classifier/backend:latest
@@ -33,6 +39,13 @@ spec:
             secretKeyRef:
               name: gemini-secret
               key: api-key
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 1000
         resources:
           requests:
             cpu: 250m
