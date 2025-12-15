@@ -12,14 +12,14 @@ import pandas as pd
 import numpy as np
 from typing import List, Dict, Tuple
 from dotenv import load_dotenv
-from openai import OpenAI
+import google.generativeai as genai
 from sklearn.metrics.pairwise import cosine_similarity
 
 
 class OccupationClassifier:
     """
     職業分類判定クラス
-    OpenAI Embeddings と GPT-4o を使用したRAG構成で職業分類を判定します。
+    Google Gemini Embeddings と Gemini を使用したRAG構成で職業分類を判定します。
     """
 
     def __init__(self, csv_path: str = None):
@@ -32,22 +32,25 @@ class OccupationClassifier:
         # 環境変数の読み込み
         load_dotenv()
         
-        # OpenAI APIキーの取得と検証
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key or api_key == "your_openai_api_key_here":
+        # Gemini APIキーの取得と検証
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key or api_key == "your_gemini_api_key_here":
             raise ValueError(
-                "OPENAI_API_KEYが設定されていません。\n"
+                "GEMINI_API_KEYが設定されていません。\n"
                 ".envファイルを作成し、有効なAPIキーを設定してください。"
             )
         
-        # OpenAIクライアントの初期化
-        self.client = OpenAI(api_key=api_key)
+        # Gemini APIの設定
+        genai.configure(api_key=api_key)
         
         # Embeddingモデルの指定
-        self.embedding_model = "text-embedding-3-small"
+        self.embedding_model = "models/text-embedding-004"
         
         # LLMモデルの指定
-        self.llm_model = "gpt-4o"
+        self.llm_model = "gemini-2.0-flash-exp"
+        
+        # GenerativeModelの初期化
+        self.model = genai.GenerativeModel(self.llm_model)
         
         # データのロード
         self.data = self._load_data(csv_path)
@@ -175,14 +178,18 @@ class OccupationClassifier:
         ]
         
         try:
-            # OpenAI Embeddings APIを使用してベクトル化
-            response = self.client.embeddings.create(
-                model=self.embedding_model,
-                input=self.embedding_texts
-            )
+            # Gemini Embeddings APIを使用してベクトル化
+            embeddings_list = []
+            for text in self.embedding_texts:
+                result = genai.embed_content(
+                    model=self.embedding_model,
+                    content=text,
+                    task_type="retrieval_document"
+                )
+                embeddings_list.append(result['embedding'])
             
             # Embeddingsを抽出
-            self.embeddings = np.array([item.embedding for item in response.data])
+            self.embeddings = np.array(embeddings_list)
             print(f"Embeddings作成完了 (shape: {self.embeddings.shape})")
             
         except Exception as e:
@@ -205,11 +212,12 @@ class OccupationClassifier:
         
         try:
             # ユーザー入力をベクトル化
-            response = self.client.embeddings.create(
+            result = genai.embed_content(
                 model=self.embedding_model,
-                input=[user_input]
+                content=user_input,
+                task_type="retrieval_query"
             )
-            user_embedding = np.array([response.data[0].embedding])
+            user_embedding = np.array([result['embedding']])
             
             # コサイン類似度を計算
             similarities = cosine_similarity(user_embedding, self.embeddings)[0]
@@ -243,49 +251,44 @@ class OccupationClassifier:
         Returns:
             判定結果（code, name, reason）
         """
-        # System Prompt の作成
-        system_prompt = """あなたは職業分類の専門家です。
-ユーザーの入力と、候補となる職業分類リストを比較し、最も適切な職業分類を1つ選択してください。
-
-必ず以下のJSON形式で回答してください：
-{
-  "code": "職業コード",
-  "name": "職業名",
-  "reason": "この職業を選択した理由（日本語で簡潔に）"
-}"""
-        
         # User Prompt の作成
         candidates_text = "\n".join([
             f"- コード: {c['code']}, 名称: {c['name']}, 説明: {c['description']}"
             for c in candidates
         ])
         
-        user_prompt = f"""【ユーザーの入力】
+        prompt = f"""あなたは職業分類の専門家です。
+ユーザーの入力と、候補となる職業分類リストを比較し、最も適切な職業分類を1つ選択してください。
+
+【ユーザーの入力】
 {user_input}
 
 【候補となる職業分類】
 {candidates_text}
 
-上記の候補から最も適切な職業分類を1つ選択し、JSON形式で回答してください。"""
+上記の候補から最も適切な職業分類を1つ選択し、必ず以下のJSON形式で回答してください：
+{{
+  "code": "職業コード",
+  "name": "職業名",
+  "reason": "この職業を選択した理由（日本語で簡潔に）"
+}}"""
         
         try:
-            # GPT-4oでの判定（JSON Modeを使用）
-            response = self.client.chat.completions.create(
-                model=self.llm_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3
+            # Gemini での判定（JSON Modeを使用）
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    temperature=0.3
+                )
             )
             
             # レスポンスの解析
-            result = json.loads(response.choices[0].message.content)
+            result = json.loads(response.text)
             return result
             
         except Exception as e:
-            raise RuntimeError(f"GPT-4oでの判定中にエラーが発生しました: {str(e)}")
+            raise RuntimeError(f"Gemini での判定中にエラーが発生しました: {str(e)}")
     
     def classify(self, user_input: str) -> Dict:
         """

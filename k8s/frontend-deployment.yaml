@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: occupation-classifier
+  labels:
+    app: occupation-classifier
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: occupation-classifier
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: occupation-classifier
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/shznkym/occupation-classifier/frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        env:
+        - name: NEXT_PUBLIC_BACKEND_URL
+          value: "http://backend-service:8000"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
