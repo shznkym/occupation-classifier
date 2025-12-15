@@ -36,7 +36,9 @@ export default function Home() {
     setResult(null);
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      // Note: Using hardcoded LoadBalancer IP since Next.js NEXT_PUBLIC_ vars
+      // are embedded at build-time and don't reflect Kubernetes runtime env vars
+      const backendUrl = 'http://10.0.20.96:8000';
       const response = await fetch(`${backendUrl}/api/classify`, {
         method: 'POST',
         headers: {
