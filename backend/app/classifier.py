@@ -56,7 +56,7 @@ class OccupationClassifier:
         self.embedding_model = "models/text-embedding-004"
         
         # LLMモデルの指定
-        self.llm_model = "gemini-1.5-flash"
+        self.llm_model = "gemini-1.5-flash-latest"
         
         # GenerativeModelの初期化
         self.model = genai.GenerativeModel(self.llm_model)
