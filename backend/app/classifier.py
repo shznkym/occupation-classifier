@@ -172,37 +172,76 @@ class OccupationClassifier:
             ]
             return pd.DataFrame(dummy_data)
     
-    def create_embeddings(self):
+    def create_embeddings(self, force_recreate: bool = False):
         """
-        職業分類データのEmbeddingsを作成
-        初回のみ実行される想定
+        職業データのEmbeddingsを作成（キャッシュ機能付き）
+        
+        Args:
+            force_recreate: Trueの場合、キャッシュを無視して再作成
         """
+        cache_file = "data/embeddings_cache.npy"
+        
+        # キャッシュファイルが存在し、強制再作成でない場合は読み込み
+        if not force_recreate and os.path.exists(cache_file):
+            try:
+                print(f"キャッシュからEmbeddingsを読み込んでいます: {cache_file}")
+                self.embeddings = np.load(cache_file)
+                
+                # embedding_textsも再構築
+                self.embedding_texts = (
+                    self.data['name'] + '。' + self.data['description']
+                ).tolist()
+                
+                print(f"Embeddingsキャッシュ読み込み完了 (shape: {self.embeddings.shape})")
+                print(f"💡 API呼び出しを節約しました！（{len(self.data)}件のEmbedding作成をスキップ）")
+                return
+                
+            except Exception as e:
+                print(f"⚠️ キャッシュ読み込み失敗: {e}")
+                print("新しくEmbeddingsを作成します...")
+        
+        # キャッシュがない、または強制再作成の場合
         if self.embeddings is not None:
-            print("Embeddingsは既に作成済みです。")
+            print("Embeddingsは既に作成済みです")
             return
         
         print(f"Embeddingsを作成しています...（{len(self.data)}件）")
+        print("⚠️ 初回のみ時間がかかります。次回からはキャッシュを使用します。")
         
-        # テキストの結合: "職業名: 説明"
-        self.embedding_texts = [
-            f"{row['name']}: {row['description']}"
-            for _, row in self.data.iterrows()
-        ]
+        # 各職業のテキストを結合
+        self.embedding_texts = (
+            self.data['name'] + '。' + self.data['description']
+        ).tolist()
         
-        try:
-            # Gemini Embeddings APIを使用してベクトル化
-            embeddings_list = []
-            for text in self.embedding_texts:
+        # Embeddingsを作成
+        embeddings_list = []
+        
+        for i, text in enumerate(self.embedding_texts):
+            if (i + 1) % 50 == 0:
+                print(f"  進捗: {i + 1}/{len(self.embedding_texts)}")
+            
+            try:
                 result = genai.embed_content(
                     model=self.embedding_model,
-                    content=text,
-                    task_type="retrieval_document"
+                    content=text
                 )
                 embeddings_list.append(result['embedding'])
-            
-            # Embeddingsを抽出
-            self.embeddings = np.array(embeddings_list)
-            print(f"Embeddings作成完了 (shape: {self.embeddings.shape})")
+            except Exception as e:
+                print(f"  エラー (職業 {i}): {e}")
+                raise
+        
+        self.embeddings = np.array(embeddings_list)
+        print(f"Embeddings作成完了 (shape: {self.embeddings.shape})")
+        
+        # キャッシュファイルに保存
+        try:
+            # ディレクトリが存在しない場合は作成
+            os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+            np.save(cache_file, self.embeddings)
+            print(f"✅ Embeddingsをキャッシュに保存しました: {cache_file}")
+            print(f"💡 次回起動時はAPI呼び出しなしで高速起動できます！")
+        except Exception as e:
+            print(f"⚠️ キャッシュ保存失敗（無視して続行）: {e}")
             
         except Exception as e:
             raise RuntimeError(f"Embeddings作成中にエラーが発生しました: {str(e)}")
