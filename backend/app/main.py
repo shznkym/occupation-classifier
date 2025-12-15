@@ -73,6 +73,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://frontend:3000",
         "http://127.0.0.1:3000",
+        "http://10.0.20.95:3000",  # Frontend LoadBalancer IP
     ],
     allow_credentials=True,
     allow_methods=["*"],
