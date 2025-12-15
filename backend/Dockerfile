@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # アプリケーションコードのコピー
 COPY app ./app
+COPY data ./data
 
 # ポート8000を公開
 EXPOSE 8000
