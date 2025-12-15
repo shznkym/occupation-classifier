@@ -40,8 +40,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up application...")
     
     try:
-        # Classifierの初期化
-        classifier = OccupationClassifier()
+        # Classifierの初期化（実データを使用）
+        classifier = OccupationClassifier(csv_path="data/occupation.csv")
         
         # Embeddingsの事前作成
         classifier.create_embeddings()
